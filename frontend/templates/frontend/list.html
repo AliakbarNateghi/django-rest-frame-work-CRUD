@@ -126,14 +126,20 @@
             }
             return cookieValue;
         }
-        const csrftoken = getCookie('csrftoken');
+        let csrftoken = getCookie('csrftoken');
+
+        let activeItem = null
+        let list_snapshot = []
 
         buildList()
 
         function buildList()
         {
             let wrapper = document.getElementById('list-wrapper');
-            wrapper.innerHtml = ''
+            //wrapper.innerHtml = ''
+
+
+
             let url = 'http://127.0.0.1:8000/api/task-list/';
 
             fetch(url)
@@ -145,10 +151,22 @@
                 let list = data;
                 for(let i in list)
                 {
+                    try
+                    {
+                        document.getElementById(`data-row-${i}`).remove()
+                    }catch (err) {
+
+                    }
+                    let title = `<span class="title">${list[i].title}</span>`
+                    if (list[i].completed == true)
+                    {
+                        title = `<strike class="title">${list[i].title}</strike>`
+                    }
+
                     let item = `
                         <div id="data-row-${i}" class="task-wrapper flex-wrapper">
                             <div style="flex: 7">
-                                <span class="title">${list[i].title}</span>
+                                ${title}
                             </div>
                             <div style="flex: 1">
                                 <button class="btn btn-sm btn-outline-info edit">EDIT </button>
@@ -160,6 +178,49 @@
                         `;
                     wrapper.innerHTML += item
                 }
+
+                if (list_snapshot.length > list.length)
+                {
+                    for(let i = list.length; i<list_snapshot.length; i++)
+                    {
+                        document.getElementById(`data-row-${id}`).remove()
+                    }
+                }
+
+                list_snapshot = list
+
+                for (let i in list)
+                    {
+                        let editBtn = document.getElementsByClassName('edit')[i]
+                        let deleteBtn = document.getElementsByClassName('delete')[i]
+                        let title = document.getElementsByClassName('title')[i]
+
+
+                        editBtn.addEventListener('click', (function(item)
+                        {
+                            return function()
+                            {
+                                editItem(item)
+                            }
+                        })(list[i]))
+
+                        deleteBtn.addEventListener('click', (function(item)
+                        {
+                            return function()
+                            {
+                                deleteItem(item)
+                            }
+                        })(list[i]))
+
+                        title.addEventListener('click', (function(item)
+                        {
+                            return function()
+                            {
+                                strikeUnstrike(item)
+                            }
+                        })(list[i]))
+                    }
+
             })
         }
 
@@ -168,7 +229,16 @@
         {
             e.preventDefault()
             console.log('Form submitted')
-            let url = 'http://127.0.0.1:8000/api/task-create/'
+
+
+            if (activeItem != null)
+            {
+                var url = `http://127.0.0.1:8000/api/task-update/${activeItem.id}/`
+                activeItem = null
+            }else{
+                var url = 'http://127.0.0.1:8000/api/task-create/'
+            }
+
             let title = document.getElementById('title').value
             fetch(url, {
                 method: 'POST',
@@ -184,6 +254,51 @@
             })
 
         })
+
+        function editItem(item)
+        {
+            activeItem = item
+            document.getElementById('title').value = activeItem.title
+        }
+
+        function deleteItem(item)
+        {
+            var url = `http://127.0.0.1:8000/api/task-delete/${item.id}/`
+
+            fetch(url,
+                {
+                    method: 'DELETE',
+                    headers:
+                        {
+                            'Content-type': 'application/json',
+                            'X_CSRFToken': csrftoken,
+                        }
+                }).then(response =>
+            {
+                buildList()
+            })
+
+        }
+        
+        function strikeUnstrike(item)
+        {
+            item.completed =! item.completed
+            var url = `http://127.0.0.1:8000/api/task-update/${item.id}/`
+            fetch(url,
+                {
+                    method: 'POST',
+                    headers:
+                        {
+                            'Content-type': 'application/json',
+                            'X_CSRFToken': csrftoken,
+                        },
+                    body: JSON.stringify({'title': item.title, 'completed': item.completed})
+                }).then(response =>
+                        {
+                            buildList()
+                        })
+            
+        }
     </script>
 </body>
 </html>
